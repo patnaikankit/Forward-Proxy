@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/patnaikankit/Forward-Proxy.git/console"
-	"github.com/patnaikankit/Forward-Proxy.git/proxy"
+	"github.com/patnaikankit/Forward-Proxy/console"
+	"github.com/patnaikankit/Forward-Proxy/proxy"
 )
 
 func main() {

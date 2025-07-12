@@ -45,9 +45,9 @@ func IsBlocked(url string) bool {
 }
 
 // Helper functions for logging
-func LogRequest(req *proxy.HTTPRequest) {
+func LogRequest(req *HTTPRequest) {
 	Lock()
-	entry := time.Now().Format("15:04:05") + " - " + req.URL.String()
+	entry := time.Now().Format("15:04:05") + " - " + req.URL
 	logs = append(logs, entry)
 }
 

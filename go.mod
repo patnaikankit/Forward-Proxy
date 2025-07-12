@@ -1,4 +1,4 @@
-module github.com/patnaikankit/Forward-Proxy.git
+module github.com/patnaikankit/Forward-Proxy
 
 go 1.22.0
 

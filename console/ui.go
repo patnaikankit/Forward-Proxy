@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/patnaikankit/Forward-Proxy.git/utils"
+	"github.com/patnaikankit/Forward-Proxy/utils"
 )
 
 func ConsoleRunner() {
