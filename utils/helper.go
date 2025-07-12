@@ -39,6 +39,17 @@ func UnblockURL(url string) {
 	blocked[url] = false
 }
 
+func GetBlockedURLs() []string {
+	Lock()
+	urls := make([]string, 0, len(blocked))
+	for url, isBlocked := range blocked {
+		if isBlocked {
+			urls = append(urls, url)
+		}
+	}
+	return urls
+}
+
 func IsBlocked(url string) bool {
 	Lock()
 	return blocked[url]
