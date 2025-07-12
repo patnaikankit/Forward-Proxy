@@ -1,9 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"github.com/patnaikankit/Forward-Proxy.git/console"
+	"github.com/patnaikankit/Forward-Proxy.git/proxy"
 )
 
 func main() {
-	fmt.Println("Hello, World!")
+	go proxy.StartProxy()
+	console.ConsoleRunner()
 }
