@@ -13,13 +13,13 @@ import (
 
 func main() {
 	// Start proxy server in background
-	go proxy.StartProxy()
+	go proxy.ProxyInitialization()
 
 	// Start console UI
 	if utils.DebugMode {
-		console.StartConsole()
+		console.ConsoleRunner()
 	} else {
-		// Wait for termination (useful for debug mode)
+		// Wait for termination
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 		<-sig

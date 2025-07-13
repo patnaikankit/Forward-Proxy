@@ -12,7 +12,7 @@ var windowFocus = "requests" // "requests" or "blocked"
 var selectedRequestIndex int
 var selectedBlockedIndex int
 
-func StartConsole() {
+func ConsoleRunner() {
 	err := termbox.Init()
 	if err != nil {
 		panic(err)
@@ -138,21 +138,23 @@ func drawUI() {
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	width, height := termbox.Size()
 
-	// Layout constants
-	requestsBoxHeight := height - 12
-	if requestsBoxHeight < 5 {
-		requestsBoxHeight = 5
+	// Layout: Top half for requests, bottom half split for keymap and blocked URLs
+	midY := height / 2
+	if midY < 5 {
+		midY = 5
 	}
-	keymapBoxY := requestsBoxHeight + 2
-	keymapBoxHeight := 9
-	blockedBoxX := width/2 + 1
+	bottomY := height - 1
+	leftBoxX2 := width/2 - 1
+	if leftBoxX2 < 20 {
+		leftBoxX2 = 20
+	}
 
-	// Draw requests box
-	drawBox(0, 0, width/2-1, requestsBoxHeight)
+	// Draw requests box (top half)
+	drawBox(0, 0, width-1, midY)
 	header := fmt.Sprintf("Management Console - %d Total Packets", len(requests))
-	writeStr((width/2-len(header))/2, 0, header, termbox.ColorYellow, termbox.ColorBlack)
+	writeStr((width-len(header))/2, 0, header, termbox.ColorYellow, termbox.ColorBlack)
 
-	maxRequests := requestsBoxHeight - 2
+	maxRequests := midY - 2
 	startIdx := 0
 	if len(requests) > maxRequests {
 		startIdx = len(requests) - maxRequests
@@ -165,8 +167,8 @@ func drawUI() {
 	}
 	for i := startIdx; i < len(requests) && i-startIdx < maxRequests; i++ {
 		line := requests[i]
-		if len(line) > width/2-4 {
-			line = line[:width/2-7] + "..."
+		if len(line) > width-4 {
+			line = line[:width-7] + "..."
 		}
 		fg, bg := termbox.ColorWhite, termbox.ColorBlack
 		if windowFocus == "requests" && i == selectedRequestIndex {
@@ -175,39 +177,40 @@ func drawUI() {
 		writeStr(2, i-startIdx+1, line, fg, bg)
 	}
 
-	// Draw blocked URLs box
-	drawBox(blockedBoxX, 0, width-1, requestsBoxHeight)
-	writeStr(blockedBoxX+2, 1, "Blocked URLs", termbox.ColorRed, termbox.ColorBlack)
-	maxBlocked := requestsBoxHeight - 3
+	// Draw keymap box (bottom left)
+	drawBox(0, midY+1, leftBoxX2, bottomY)
+	keymapY := midY + 2
+	writeStr(2, keymapY, "Keymap:", termbox.ColorCyan, termbox.ColorBlack)
+	writeStr(2, keymapY+1, "[Q] - Quit", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+2, "[S] - Switch window", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+3, "[R] - Refresh requests list", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+4, "[B] - Block URL (of selected packet)", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+5, "[U] - Unblock URL (of selected blocked)", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+6, "[Up/Down Arrow] - Select packet or URL", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+7, "[S] - Switch Requests/Blocked pane", termbox.ColorWhite, termbox.ColorBlack)
+
+	// Draw blocked URLs box (bottom right)
+	drawBox(leftBoxX2+1, midY+1, width-1, bottomY)
+	writeStr(leftBoxX2+3, midY+2, "Blocked URLs", termbox.ColorRed, termbox.ColorBlack)
+	maxBlocked := bottomY - (midY + 3)
 	for i := 0; i < len(blockedURLs) && i < maxBlocked; i++ {
 		url := blockedURLs[i]
 		fg, bg := termbox.ColorWhite, termbox.ColorBlack
 		if windowFocus == "blocked" && i == selectedBlockedIndex {
 			fg, bg = termbox.ColorBlack, termbox.ColorWhite
 		}
-		writeStr(blockedBoxX+2, i+2, url, fg, bg)
+		writeStr(leftBoxX2+3, midY+3+i, url, fg, bg)
 	}
 
-	// Draw keymap box
-	drawBox(0, keymapBoxY, width-1, keymapBoxY+keymapBoxHeight)
-	writeStr(2, keymapBoxY+1, "Keymap:", termbox.ColorCyan, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+2, "[Q] - Quit", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+3, "[S] - Switch window", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+4, "[R] - Refresh requests list", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+5, "[B] - Block URL (of selected packet)", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+6, "[U] - Unblock URL (of selected blocked)", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+7, "[Up/Down Arrow] - Select packet or URL", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapBoxY+8, "[S] - Switch Requests/Blocked pane", termbox.ColorWhite, termbox.ColorBlack)
-
-	// Draw status line
+	// Draw status line at the very bottom (optional)
 	status := ""
 	if windowFocus == "requests" && selectedRequestIndex >= 0 && selectedRequestIndex < len(requests) {
 		status = requests[selectedRequestIndex]
 	} else if windowFocus == "blocked" && selectedBlockedIndex >= 0 && selectedBlockedIndex < len(blockedURLs) {
 		status = blockedURLs[selectedBlockedIndex]
 	}
-	if status != "" {
-		writeStr(2, keymapBoxY+keymapBoxHeight, "Selected: "+status, termbox.ColorYellow, termbox.ColorBlack)
+	if status != "" && height > 1 {
+		writeStr(2, height-1, "Selected: "+status, termbox.ColorYellow, termbox.ColorBlack)
 	}
 
 	termbox.Flush()
