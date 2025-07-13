@@ -232,19 +232,46 @@ func drawDetailsPane(line string, width, height int) {
 	writeStr(x1+2, y2-1, "[Esc/Enter] to close", termbox.ColorWhite, termbox.ColorBlack)
 }
 
-// Extract URL from a log line (assumes format: time - URL)
+// Extract URL from a log line (new format: [time] PROTOCOL --> METHOD URL HTTP/1.1)
 func extractURL(line string) string {
-	idx := -1
-	for i := 0; i < len(line); i++ {
-		if line[i] == '-' && i+2 < len(line) && line[i+1] == ' ' {
-			idx = i + 2
+	// Example: [21:26:10] HTTPS --> CONNECT push.services.mozilla.com HTTP/1.1
+	// We want to extract 'push.services.mozilla.com' (the URL after METHOD)
+	parts := line
+	// Find the first occurrence of ">" (end of -->), then split by spaces
+	arrowIdx := -1
+	for i := 0; i < len(parts)-1; i++ {
+		if parts[i] == '>' && parts[i-1] == '-' && parts[i-2] == '-' && parts[i-3] == ' ' {
+			arrowIdx = i + 1
 			break
 		}
 	}
-	if idx != -1 {
-		return line[idx:]
+	if arrowIdx == -1 || arrowIdx >= len(parts) {
+		return ""
 	}
-	return ""
+	// Skip spaces after -->
+	for arrowIdx < len(parts) && parts[arrowIdx] == ' ' {
+		arrowIdx++
+	}
+	// Now, the next word is METHOD, then URL, then maybe HTTP/1.1
+	fields := []string{}
+	curr := ""
+	for i := arrowIdx; i < len(parts); i++ {
+		if parts[i] == ' ' {
+			if curr != "" {
+				fields = append(fields, curr)
+				curr = ""
+			}
+		} else {
+			curr += string(parts[i])
+		}
+	}
+	if curr != "" {
+		fields = append(fields, curr)
+	}
+	if len(fields) < 2 {
+		return ""
+	}
+	return fields[1] // METHOD fields[0], URL fields[1]
 }
 
 func drawRequests(requests []string, width, height int) {

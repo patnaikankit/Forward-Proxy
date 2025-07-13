@@ -58,7 +58,15 @@ func IsBlocked(url string) bool {
 // Helper functions for logging
 func LogRequest(req *HTTPRequest) {
 	Lock()
-	entry := time.Now().Format("15:04:05") + " - " + req.URL
+	var protocol string
+	if req.IsHTTPS {
+		protocol = "HTTPS"
+	} else {
+		protocol = "HTTP"
+	}
+	entry := "[" + time.Now().Format("15:04:05") + "] " + protocol + " --> " + req.Method + " " + req.URL + " " + req.Version
+
+	// entry := time.Now().Format("15:04:05") + " - " + req.URL
 	logs = append(logs, entry)
 }
 
