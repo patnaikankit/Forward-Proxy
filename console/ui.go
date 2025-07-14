@@ -210,12 +210,12 @@ func drawUI() {
 	keymapY := midY + 2
 	writeStr(2, keymapY, "Keymap:", termbox.ColorCyan, termbox.ColorBlack)
 	writeStr(2, keymapY+1, "[Q] - Quit", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapY+2, "[S] - Switch window", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+2, "[S] - Switch window - Requests/Blocked pane", termbox.ColorWhite, termbox.ColorBlack)
 	writeStr(2, keymapY+3, "[R] - Refresh requests list", termbox.ColorWhite, termbox.ColorBlack)
 	writeStr(2, keymapY+4, "[B] - Block URL (of selected packet)", termbox.ColorWhite, termbox.ColorBlack)
 	writeStr(2, keymapY+5, "[U] - Unblock URL (of selected blocked)", termbox.ColorWhite, termbox.ColorBlack)
 	writeStr(2, keymapY+6, "[Up/Down Arrow] - Select packet or URL", termbox.ColorWhite, termbox.ColorBlack)
-	writeStr(2, keymapY+7, "[S] - Switch Requests/Blocked pane", termbox.ColorWhite, termbox.ColorBlack)
+	writeStr(2, keymapY+7, "[Enter] - Inspect HTTP requests", termbox.ColorWhite, termbox.ColorBlack)
 
 	// Draw blocked URLs box (bottom right)
 	drawBox(leftBoxX2+1, midY+1, width-1, bottomY)
