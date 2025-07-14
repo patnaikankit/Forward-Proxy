@@ -27,6 +27,8 @@ func HandleHTTP(conn net.Conn, req *utils.HTTPRequest) {
 
 	defer serverConn.Close()
 
+	serverConn.Write(req.Raw)
+
 	response, err := io.ReadAll(serverConn)
 	if err != nil {
 		return

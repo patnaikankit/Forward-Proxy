@@ -8,7 +8,7 @@ import (
 var (
 	cache   = make(map[string][]byte)
 	blocked = make(map[string]bool)
-	logs    []string
+	logs    []LoggedRequest
 	lock    sync.Mutex
 )
 
@@ -65,12 +65,20 @@ func LogRequest(req *HTTPRequest) {
 		protocol = "HTTP"
 	}
 	entry := "[" + time.Now().Format("15:04:05") + "] " + protocol + " --> " + req.Method + " " + req.URL + " " + req.Version
-
-	// entry := time.Now().Format("15:04:05") + " - " + req.URL
-	logs = append(logs, entry)
+	logs = append(logs, LoggedRequest{
+		LogLine:   entry,
+		Request:   req,
+		Timestamp: time.Now(),
+	})
 }
 
-func GetLogs() []string {
+func GetLogs() []LoggedRequest {
 	Lock()
 	return logs
+}
+
+type LoggedRequest struct {
+	LogLine   string
+	Request   *HTTPRequest
+	Timestamp time.Time
 }

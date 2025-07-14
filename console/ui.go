@@ -2,6 +2,7 @@ package console
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/nsf/termbox-go"
@@ -11,6 +12,10 @@ import (
 var windowFocus = "requests" // "requests" or "blocked"
 var selectedRequestIndex int
 var selectedBlockedIndex int
+var showDetailsPane bool
+var detailsPaneRequest string
+var showDetailsScreen bool
+var detailsScreenRequest *utils.LoggedRequest
 
 func ConsoleRunner() {
 	err := termbox.Init()
@@ -22,6 +27,10 @@ func ConsoleRunner() {
 	windowFocus = "requests"
 	selectedRequestIndex = 0
 	selectedBlockedIndex = 0
+	showDetailsPane = false
+	detailsPaneRequest = ""
+	showDetailsScreen = false
+	detailsScreenRequest = nil
 
 	drawUI()
 
@@ -43,6 +52,13 @@ func ConsoleRunner() {
 	for {
 		switch ev := termbox.PollEvent(); ev.Type {
 		case termbox.EventKey:
+			if showDetailsScreen {
+				if ev.Key == termbox.KeyEnter || ev.Key == termbox.KeyEsc {
+					showDetailsScreen = false
+					drawUI()
+				}
+				continue
+			}
 			if ev.Key == termbox.KeyCtrlC || ev.Ch == 'q' {
 				close(quit)
 				return
@@ -82,7 +98,7 @@ func ConsoleRunner() {
 			} else if (ev.Ch == 'b' || ev.Ch == 'B') && windowFocus == "requests" {
 				requests := utils.GetLogs()
 				if selectedRequestIndex >= 0 && selectedRequestIndex < len(requests) {
-					url := extractURL(requests[selectedRequestIndex])
+					url := extractURL(requests[selectedRequestIndex].LogLine)
 					if url != "" {
 						utils.BlockURL(url)
 						drawUI()
@@ -99,6 +115,13 @@ func ConsoleRunner() {
 						}
 						drawUI()
 					}
+				}
+			} else if ev.Key == termbox.KeyEnter && windowFocus == "requests" {
+				requests := utils.GetLogs()
+				if selectedRequestIndex >= 0 && selectedRequestIndex < len(requests) {
+					showDetailsScreen = true
+					detailsScreenRequest = &requests[selectedRequestIndex]
+					drawUI()
 				}
 			}
 		case termbox.EventResize:
@@ -133,6 +156,11 @@ func drawBox(x1, y1, x2, y2 int) {
 }
 
 func drawUI() {
+	if showDetailsScreen && detailsScreenRequest != nil {
+		drawFullScreenDetails(detailsScreenRequest)
+		termbox.Flush()
+		return
+	}
 	requests := utils.GetLogs()
 	blockedURLs := utils.GetBlockedURLs()
 	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
@@ -166,7 +194,7 @@ func drawUI() {
 		selectedRequestIndex = len(requests) - 1
 	}
 	for i := startIdx; i < len(requests) && i-startIdx < maxRequests; i++ {
-		line := requests[i]
+		line := requests[i].LogLine
 		if len(line) > width-4 {
 			line = line[:width-7] + "..."
 		}
@@ -205,7 +233,7 @@ func drawUI() {
 	// Draw status line at the very bottom (optional)
 	status := ""
 	if windowFocus == "requests" && selectedRequestIndex >= 0 && selectedRequestIndex < len(requests) {
-		status = requests[selectedRequestIndex]
+		status = requests[selectedRequestIndex].LogLine
 	} else if windowFocus == "blocked" && selectedBlockedIndex >= 0 && selectedBlockedIndex < len(blockedURLs) {
 		status = blockedURLs[selectedBlockedIndex]
 	}
@@ -214,6 +242,69 @@ func drawUI() {
 	}
 
 	termbox.Flush()
+
+	if showDetailsPane {
+		drawRequestDetailsPane(detailsPaneRequest, width, height)
+		termbox.Flush()
+	}
+}
+
+// Draw a centered details pane with the full request info and cache/raw data if available
+func drawRequestDetailsPane(logLine string, width, height int) {
+	// Extract URL from log line
+	url := extractURL(logLine)
+	cache := ""
+	if url != "" {
+		cached := utils.GetCache(url)
+		if cached != nil {
+			cache = string(cached)
+		}
+	}
+	// Prepare details text
+	details := logLine
+	if cache != "" {
+		details += "\n\n--- Cached/Raw Data ---\n" + cache
+	}
+	lines := splitLines(details, width-8)
+	boxWidth := width - 8
+	if boxWidth > 100 {
+		boxWidth = 100
+	}
+	boxHeight := len(lines) + 4
+	if boxHeight > height-4 {
+		boxHeight = height - 4
+	}
+	x1 := (width - boxWidth) / 2
+	y1 := (height - boxHeight) / 2
+	x2 := x1 + boxWidth
+	y2 := y1 + boxHeight
+	drawBox(x1, y1, x2, y2)
+	for i, line := range lines {
+		writeStr(x1+2, y1+2+i, line, termbox.ColorYellow, termbox.ColorBlack)
+	}
+	writeStr(x1+2, y2-1, "[Esc/Enter] to close", termbox.ColorWhite, termbox.ColorBlack)
+}
+
+// Helper to split long text into lines of max width
+func splitLines(s string, maxWidth int) []string {
+	var lines []string
+	curr := ""
+	for _, r := range s {
+		if r == '\n' || len(curr) >= maxWidth {
+			lines = append(lines, curr)
+			if r == '\n' {
+				curr = ""
+			} else {
+				curr = string(r)
+			}
+		} else {
+			curr += string(r)
+		}
+	}
+	if curr != "" {
+		lines = append(lines, curr)
+	}
+	return lines
 }
 
 // Draw a centered details pane with the full request info
@@ -274,7 +365,7 @@ func extractURL(line string) string {
 	return fields[1] // METHOD fields[0], URL fields[1]
 }
 
-func drawRequests(requests []string, width, height int) {
+func drawRequests(requests []utils.LoggedRequest, width, height int) {
 	// Header
 	header := fmt.Sprintf("Management Console - %d Total Packets", len(requests))
 	writeStr(0, 0, header, termbox.ColorYellow, termbox.ColorBlack)
@@ -292,7 +383,7 @@ func drawRequests(requests []string, width, height int) {
 	}
 
 	for i := startIdx; i < len(requests) && i-startIdx < maxRequests; i++ {
-		line := requests[i]
+		line := requests[i].LogLine
 		// Truncate line if it's too long for terminal width
 		if len(line) > width-1 {
 			line = line[:width-4] + "..."
@@ -329,4 +420,52 @@ func writeStr(x, y int, msg string, fg, bg termbox.Attribute) {
 	for i, ch := range msg {
 		termbox.SetCell(x+i, y, ch, fg, bg)
 	}
+}
+
+func drawFullScreenDetails(req *utils.LoggedRequest) {
+	termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	width, _ := termbox.Size()
+	y := 1
+	writeStr((width-18)/2, 0, "Request Details", termbox.ColorCyan, termbox.ColorBlack)
+	writeStr(2, y, "General Information", termbox.ColorWhite|termbox.AttrBold, termbox.ColorBlack)
+	y++
+	writeStr(2, y, fmt.Sprintf("Timestamp - %s", req.Timestamp.Format("15:04:05")), termbox.ColorWhite, termbox.ColorBlack)
+	y++
+	writeStr(2, y, fmt.Sprintf("Method - %s", req.Request.Method), termbox.ColorWhite, termbox.ColorBlack)
+	y++
+	writeStr(2, y, fmt.Sprintf("URL - %s", req.Request.URL), termbox.ColorWhite, termbox.ColorBlack)
+	y++
+	writeStr(2, y, fmt.Sprintf("Version - %s", req.Request.Version), termbox.ColorWhite, termbox.ColorBlack)
+	y += 2
+	writeStr(2, y, "HTTP Headers", termbox.ColorWhite|termbox.AttrBold, termbox.ColorBlack)
+	y++
+	// Parse headers from Raw
+	headers := parseHeadersFromRaw(req.Request.Raw)
+	for _, h := range headers {
+		writeStr(2, y, h, termbox.ColorWhite, termbox.ColorBlack)
+		y++
+	}
+	y++
+	writeStr(2, y, "Raw Request Data", termbox.ColorWhite|termbox.AttrBold, termbox.ColorBlack)
+	y++
+	raw := string(req.Request.Raw)
+	for _, line := range splitLines(raw, width-4) {
+		writeStr(2, y, line, termbox.ColorWhite, termbox.ColorBlack)
+		y++
+	}
+	writeStr(2, y+1, "[Esc/Enter] to return", termbox.ColorYellow, termbox.ColorBlack)
+}
+
+// Helper to parse headers from raw HTTP request bytes
+func parseHeadersFromRaw(raw []byte) []string {
+	lines := strings.Split(string(raw), "\r\n")
+	var headers []string
+	for i := 1; i < len(lines); i++ {
+		line := lines[i]
+		if line == "" {
+			break
+		}
+		headers = append(headers, line)
+	}
+	return headers
 }
